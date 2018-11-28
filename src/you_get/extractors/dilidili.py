@@ -4,6 +4,7 @@ __all__ = ['download']
 
 from ..common import *
 from ..extractor import *
+from ..extractors.ckplayer import ckplayer_download
 
 headers = {
     'DNT': '1',
@@ -18,9 +19,9 @@ headers = {
     'Save-Data': 'on',
 }
 
+
 class dilidili(VideoExtractor):
     name = 'dilidili'
-
     stream_types = [{'id': 'default'}]
 
     def prepare(self, **kwargs):
@@ -39,14 +40,19 @@ class dilidili(VideoExtractor):
         player_html = get_content(player_url, headers=headers, decoded=False).decode('utf-8')
         player_host = match1(frame_url, r'(http://.*?)/')
         headers['Referer'] = player_url
+        headers['Origin'] = player_host
 
         # post to ``api.php`` for video info
         # api -> {url : str, play : str, type : str, success : str}
         api_params = json.loads(match1(player_html, r'.*?"api.php"\s*,\s*({.*})'))
         api_url = player_host + '/api.php'
         api_res = json.loads(post_content(api_url, post_data=api_params, headers=headers))
+        if not api_res['url'].startswith('http'):
+            api_res['url'] =  player_host + api_res['url']
+        if 'http%3A%2F%2F' in api_res['url']:
+            api_res['url'] = parse.unquote(api_res['url'])
 
-        if api_res['success']:
+        if api_res['success'] == '1':
             self.streams['default'] = api_res
         else:
             raise Exception('DILIDILI API ACCESS FAILED')
@@ -57,14 +63,18 @@ class dilidili(VideoExtractor):
         if data['play'] in ('url', 'iframe', 'h5', 'html5', 'h5mp4'):
             _, data['container'], data['size'] = url_info(data['url'], headers=headers)
             data['src'] = [data['url']]
-        elif data['play'] in ('hls'):
+        elif data['play'] in ('hls', 'm3u8'):
             ts_urls = general_m3u8_extractor(data['url'], headers=headers)
             data['container'] = 'm3u8'
-            data['size'] = 0
+            data['size'] = urls_size(ts_urls)
             data['src'] = ts_urls
-        else:
+            data['m3u8_url'] = data['url']
+        elif data['play'] in ('ajax'):
+            # todo uncommon source ``aiqiyi, qq, youku``
             raise NotImplemented
-
+        else:
+            self.download = lambda **kwargs: ckplayer_download(data['url'], is_xml=True, title=self.title,
+                                                               headers=headers, **kwargs)
 
 
 site = dilidili()
