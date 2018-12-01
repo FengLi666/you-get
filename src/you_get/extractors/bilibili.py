@@ -3,22 +3,19 @@
 __all__ = ['bilibili_download']
 
 import hashlib
-import re
-import time
-import json
 import http.cookiejar
-import urllib.request
 import urllib.parse
+import urllib.request
 from xml.dom.minidom import parseString
-
-from ..common import *
-from ..util.log import *
-from ..extractor import *
 
 from .qq import qq_download_by_vid
 from .sina import sina_download_by_vid
 from .tudou import tudou_download_by_id
 from .youku import youku_download_by_vid
+from ..common import *
+from ..extractor import *
+from ..util.log import *
+
 
 class Bilibili(VideoExtractor):
     name = 'Bilibili'
@@ -284,12 +281,6 @@ class Bilibili(VideoExtractor):
         self.streams['vc']['size'] = int(item['video_size'])
 
     def bangumi_entry(self, **kwargs):
-        bangumi_id = re.search(r'(\d+)', self.url).group(1)
-        frag = urllib.parse.urlparse(self.url).fragment
-        if frag:
-            episode_id = frag
-        else:
-            episode_id = re.search(r'first_ep_id\s*=\s*"(\d+)"', self.page) or re.search(r'\/ep(\d+)', self.url).group(1)
         data = json.loads(re.search(r'__INITIAL_STATE__=(.+);\(function', self.page).group(1))
         cid = data['epInfo']['cid']
         # index_title = data['epInfo']['index_title']
